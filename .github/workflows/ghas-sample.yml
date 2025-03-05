@@ -26,12 +26,7 @@ jobs:
     - name: リポジトリをチェックアウト
       uses: actions/checkout@v3
 
-    - name: CodeQL 初期化
-      uses: github/codeql-action/init@v3
-      with:
-        languages: ${{ matrix.language }}
-        queries: security-and-quality,+security-extended
-
+    # カスタムクエリを作成
     - name: カスタムクエリを設定
       run: |
         mkdir -p .github/codeql/custom-queries/python
@@ -53,10 +48,26 @@ jobs:
         select f, "この関数は " + f.getMetrics().getNumberOfLines() + " 行あります。長い関数はリファクタリングを検討してください。"
         EOL
         
-        echo "::set-output name=query-path::.github/codeql/custom-queries/python"
+        # クエリセットファイルを作成
+        cat > .github/codeql/custom-queries/python/code-quality.qls << 'EOL'
+        # Python Code Quality Query Suite
+        - import: codeql-suites/python-security-and-quality.qls
+          from: codeql-python
+        - include:
+            query path: .github/codeql/custom-queries/python/long_functions.ql
+        EOL
 
-    - name: カスタムクエリを実行
+    # CodeQL 初期化と解析
+    - name: CodeQL 初期化
+      uses: github/codeql-action/init@v2
+      with:
+        languages: ${{ matrix.language }}
+        queries: .github/codeql/custom-queries/python/code-quality.qls
+
+    - name: 自動ビルド
+      uses: github/codeql-action/autobuild@v2
+
+    - name: CodeQL 解析を実行
       uses: github/codeql-action/analyze@v2
       with:
         category: "/language:${{matrix.language}}"
-        upload: true
