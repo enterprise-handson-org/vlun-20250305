@@ -1,0 +1,74 @@
+name: "Python コード規約チェック"
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 12 * * 1' # 毎週月曜日の12:00に実行
+
+jobs:
+  analyze:
+    name: 長い関数を検知
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'python' ]
+
+    steps:
+    - name: リポジトリをチェックアウト
+      uses: actions/checkout@v3
+
+    - name: カスタムクエリを設定
+      run: |
+        # カスタムクエリのディレクトリ構造を作成
+        mkdir -p .github/codeql/custom-queries/python
+        mkdir -p .github/codeql/custom-queries/python/codeql-suites
+        
+        # 長い関数を検出するクエリファイルを作成
+        cat > .github/codeql/custom-queries/python/long_functions.ql << 'EOL'
+        /**
+         * @name 長い関数
+         * @description 行数が多すぎる関数は理解しにくく、メンテナンスが困難になります。
+         * @kind problem
+         * @problem.severity warning
+         * @id python/long-function
+         * @tags maintainability
+         *       readability
+         */
+
+        import python
+
+        from Function f
+        where f.getMetrics().getNumberOfLines() > 50  // 50行以上の関数を検出
+        select f, "この関数は " + f.getMetrics().getNumberOfLines() + " 行あります。長い関数はリファクタリングを検討してください。"
+        EOL
+
+        # クエリスイートファイルを作成
+        cat > .github/codeql/custom-queries/python/codeql-suites/python-code-quality.qls << 'EOL'
+        - import: codeql-suites/python-security-and-quality.qls
+          from: codeql-python
+        - include:
+            query path: ../long_functions.ql
+        EOL
+
+    - name: CodeQL 初期化
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        queries: .github/codeql/custom-queries/python/codeql-suites/python-code-quality.qls
+
+    - name: CodeQL 自動ビルド
+      uses: github/codeql-action/autobuild@v3
+
+    - name: CodeQL 分析
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"
