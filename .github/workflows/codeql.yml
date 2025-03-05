@@ -29,11 +29,10 @@ jobs:
     - name: カスタムクエリを設定
       run: |
         # カスタムクエリのディレクトリ構造を作成
-        mkdir -p .github/codeql/custom-queries/python
-        mkdir -p .github/codeql/custom-queries/python/codeql-suites
+        mkdir -p .github/codeql/custom-queries
         
         # 長い関数を検出するクエリファイルを作成
-        cat > .github/codeql/custom-queries/python/long_functions.ql << 'EOL'
+        cat > .github/codeql/custom-queries/long_functions.ql << 'EOL'
         /**
          * @name 長い関数
          * @description 行数が多すぎる関数は理解しにくく、メンテナンスが困難になります。
@@ -51,19 +50,23 @@ jobs:
         select f, "この関数は " + f.getMetrics().getNumberOfLines() + " 行あります。長い関数はリファクタリングを検討してください。"
         EOL
 
-        # クエリスイートファイルを作成
-        cat > .github/codeql/custom-queries/python/codeql-suites/python-code-quality.qls << 'EOL'
-        - import: codeql-suites/python-security-and-quality.qls
-          from: codeql-python
-        - include:
-            query path: ../long_functions.ql
+    - name: CodeQL設定ファイルの作成
+      run: |
+        mkdir -p .github/codeql
+        cat > .github/codeql/codeql-config.yml << 'EOL'
+        name: "Custom CodeQL Configuration"
+        
+        queries:
+          - uses: security-and-quality
+          - name: "Custom Queries"
+            uses: ./.github/codeql/custom-queries
         EOL
 
     - name: CodeQL 初期化
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
-        queries: .github/codeql/custom-queries/python/codeql-suites/python-code-quality.qls
+        config-file: .github/codeql/codeql-config.yml
 
     - name: CodeQL 自動ビルド
       uses: github/codeql-action/autobuild@v3
