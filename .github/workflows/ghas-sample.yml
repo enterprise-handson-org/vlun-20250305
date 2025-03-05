@@ -28,7 +28,11 @@ jobs:
 
     - name: カスタムクエリを設定
       run: |
+        # カスタムクエリのディレクトリ構造を作成
         mkdir -p .github/codeql/custom-queries/python
+        mkdir -p .github/codeql/custom-queries/python/codeql-suites
+        
+        # 長い関数を検出するクエリファイルを作成
         cat > .github/codeql/custom-queries/python/long_functions.ql << 'EOL'
         /**
          * @name 長い関数
@@ -52,7 +56,7 @@ jobs:
         - import: codeql-suites/python-security-and-quality.qls
           from: codeql-python
         - include:
-            query path: .github/codeql/custom-queries/python/long_functions.ql
+            query path: ../long_functions.ql
         EOL
 
     - name: CodeQL 初期化
